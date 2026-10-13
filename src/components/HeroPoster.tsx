@@ -22,6 +22,8 @@ import { Sparkles, Calendar, Clock, MapPin, Phone, GraduationCap, Edit3, ArrowDo
 interface HeroPosterProps {
   profile: GraduateProfile;
   onEditProfile: () => void;
+  onNavigateCreateInvitation: () => void;
+  onNavigateWishes: () => void;
   customImageUrl?: string;
   onCustomImageChange?: (url: string) => void;
 }
@@ -29,6 +31,8 @@ interface HeroPosterProps {
 export const HeroPoster: React.FC<HeroPosterProps> = ({
   profile,
   onEditProfile,
+  onNavigateCreateInvitation,
+  onNavigateWishes,
   customImageUrl,
   onCustomImageChange
 }) => {
@@ -213,24 +217,29 @@ export const HeroPoster: React.FC<HeroPosterProps> = ({
                 </div>
               </div>
 
-              {/* Quick Navigation Sticky Note */}
-              <div className="relative bg-[#FEF9C3] p-4 rounded-lg border border-[#1E232A] shadow-sm rotate-[1deg] hover:rotate-0 transition-transform">
-                <div className="text-xs font-bold font-mono uppercase tracking-wider text-yellow-900 flex items-center gap-1 mb-2">
-                  <span>Portfolio Map</span>
+              {/* Quick Actions Sticky Note with Prominent CTAs */}
+              <div className="relative bg-[#FEF9C3] p-4 rounded-xl border-2 border-[#1E232A] shadow-cutout rotate-[1deg] hover:rotate-0 transition-transform">
+                <div className="text-xs font-bold font-mono uppercase tracking-wider text-yellow-900 flex items-center gap-1 mb-2.5">
+                  <Sparkles className="w-3.5 h-3.5 text-yellow-700" />
+                  <span>Dành Cho Bạn Bè & Khách Mời</span>
                 </div>
-                <div className="flex flex-col gap-1.5 text-xs font-sans text-gray-800">
-                  <a href="#about" className="hover:text-blue-700 flex items-center gap-1 font-medium">
-                    <span>→ 01. About Me</span>
-                  </a>
-                  <a href="#projects" className="hover:text-blue-700 flex items-center gap-1 font-medium">
-                    <span>→ 02. Featured Projects</span>
-                  </a>
-                  <a href="#skills" className="hover:text-blue-700 flex items-center gap-1 font-medium">
-                    <span>→ 03. Technical Skills</span>
-                  </a>
-                  <a href="#contact" className="hover:text-blue-700 flex items-center gap-1 font-medium">
-                    <span>→ 04. Contact & Wishes</span>
-                  </a>
+                
+                <div className="flex flex-col gap-2">
+                  <button
+                    onClick={onNavigateCreateInvitation}
+                    className="w-full text-left px-3 py-2 rounded-lg bg-[#FFD027] hover:bg-[#FACC15] text-[#1E232A] border border-[#1E232A] font-bold text-xs shadow-sm flex items-center justify-between transition-transform active:translate-y-0.5"
+                  >
+                    <span>✨ Tạo thiệp của riêng bạn</span>
+                    <span>→</span>
+                  </button>
+
+                  <button
+                    onClick={onNavigateWishes}
+                    className="w-full text-left px-3 py-2 rounded-lg bg-white hover:bg-gray-50 text-[#1E232A] border border-[#1E232A] font-bold text-xs shadow-sm flex items-center justify-between transition-transform active:translate-y-0.5"
+                  >
+                    <span>💌 Gửi lời chúc</span>
+                    <span>↓</span>
+                  </button>
                 </div>
               </div>
 
@@ -360,15 +369,32 @@ export const HeroPoster: React.FC<HeroPosterProps> = ({
 
           </div>
 
-          {/* Bottom Scroll Indicator */}
-          <div className="mt-12 text-center flex flex-col items-center justify-center relative z-20">
+          {/* Bottom CTAs & Scroll Indicator */}
+          <div className="mt-12 text-center flex flex-col items-center justify-center gap-4 relative z-20">
+            <div className="flex flex-wrap items-center justify-center gap-3">
+              <button
+                onClick={onNavigateCreateInvitation}
+                className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[#FFD027] hover:bg-[#FACC15] text-[#1E232A] font-bold text-xs sm:text-sm border-2 border-[#1E232A] shadow-cutout transition-transform active:translate-y-0.5 active:shadow-none"
+              >
+                <Sparkles className="w-4 h-4" />
+                <span>Tạo thiệp của riêng bạn</span>
+              </button>
+
+              <button
+                onClick={onNavigateWishes}
+                className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-white hover:bg-gray-100 text-[#1E232A] font-bold text-xs sm:text-sm border-2 border-[#1E232A] shadow-cutout transition-transform active:translate-y-0.5 active:shadow-none"
+              >
+                <span>💌 Gửi lời chúc đến {profile.name}</span>
+              </button>
+            </div>
+
             <a
-              href="#about"
-              className="group inline-flex flex-col items-center gap-1 text-xs font-mono font-bold text-gray-600 hover:text-black transition-colors"
+              href="#contact"
+              className="group inline-flex flex-col items-center gap-1 text-xs font-mono font-bold text-gray-500 hover:text-black transition-colors mt-2"
             >
-              <span>EXPLORE PORTFOLIO</span>
-              <div className="w-8 h-8 rounded-full border-2 border-[#1E232A] bg-white flex items-center justify-center shadow-sm group-hover:translate-y-1 transition-transform">
-                <ArrowDown className="w-4 h-4 text-[#1E232A]" />
+              <span>XEM SỔ LƯU BÚT & LỜI CHÚC</span>
+              <div className="w-7 h-7 rounded-full border-2 border-[#1E232A] bg-white flex items-center justify-center shadow-sm group-hover:translate-y-1 transition-transform">
+                <ArrowDown className="w-3.5 h-3.5 text-[#1E232A]" />
               </div>
             </a>
           </div>

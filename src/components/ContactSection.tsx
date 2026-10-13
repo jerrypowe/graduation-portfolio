@@ -1,53 +1,68 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { GraduateProfile } from '../types';
 import { WashiTape, StampBadge, GradCapDoodle } from './Doodles';
-import { Mail, Github, Linkedin, MessageSquare, Send, Check, MapPin, Calendar, Clock, Copy } from 'lucide-react';
+import { 
+  Mail, 
+  Github, 
+  Linkedin, 
+  MessageSquare, 
+  Send, 
+  Check, 
+  MapPin, 
+  Calendar, 
+  Clock, 
+  Copy, 
+  Loader2, 
+  AlertCircle, 
+  CheckCircle,
+  Database
+} from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { playCelebrationSound } from '../utils/audio';
+import { 
+  DbWish, 
+  getWishesFromDatabase, 
+  insertWishToDatabase, 
+  isSupabaseConfigured
+} from '../lib/supabase';
 
-interface WishNote {
-  id: string;
-  sender: string;
-  message: string;
-  color: 'yellow' | 'pink' | 'blue' | 'green';
-  rotation: string;
-  timestamp: string;
+interface ContactSectionProps {
+  profile: GraduateProfile;
+  prefilledName?: string;
 }
 
-export const ContactSection: React.FC<{ profile: GraduateProfile }> = ({ profile }) => {
+export const ContactSection: React.FC<ContactSectionProps> = ({ profile, prefilledName = '' }) => {
   const [copiedEmail, setCopiedEmail] = useState(false);
   
-  // Interactive Graduation Guestbook Wishing Notes
-  const [wishes, setWishes] = useState<WishNote[]>([
-    {
-      id: '1',
-      sender: 'Kỳ Anh (Classmate)',
-      message: 'Chúc mừng Tân Cử nhân Thanh Tú! Chúc bạn bay thật cao và kiến tạo thật nhiều sản phẩm tuyệt vời nhé! 🎓🎉',
-      color: 'yellow',
-      rotation: '-rotate-2',
-      timestamp: '24 Oct 2026'
-    },
-    {
-      id: '2',
-      sender: 'Tech Lead / Mentor',
-      message: 'Impressive engineering foundations and creative eye for frontend craftsmanship. Keep shining in your SWE journey!',
-      color: 'blue',
-      rotation: 'rotate-2',
-      timestamp: '24 Oct 2026'
-    },
-    {
-      id: '3',
-      sender: 'FPT University Alumni',
-      message: 'Tự hào FPT Can Tho! Chúc cậu gặt hái thật nhiều thành công rực rỡ trong sự nghiệp Software Engineering!',
-      color: 'pink',
-      rotation: '-rotate-1',
-      timestamp: '24 Oct 2026'
-    }
-  ]);
+  // Wishes loaded from database
+  const [wishes, setWishes] = useState<DbWish[]>([]);
+  const [isLoadingWishes, setIsLoadingWishes] = useState(true);
 
-  const [senderName, setSenderName] = useState('');
+  // Form states
+  const [senderName, setSenderName] = useState(prefilledName);
   const [senderWish, setSenderWish] = useState('');
   const [selectedColor, setSelectedColor] = useState<'yellow' | 'pink' | 'blue' | 'green'>('yellow');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [statusMessage, setStatusMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+
+  // Update senderName if prefilledName changes
+  useEffect(() => {
+    if (prefilledName) {
+      setSenderName(prefilledName);
+    }
+  }, [prefilledName]);
+
+  // Load wishes on mount
+  useEffect(() => {
+    loadWishes();
+  }, []);
+
+  const loadWishes = async () => {
+    setIsLoadingWishes(true);
+    const result = await getWishesFromDatabase();
+    setWishes(result.wishes);
+    setIsLoadingWishes(false);
+  };
 
   const handleCopyEmail = () => {
     navigator.clipboard.writeText(profile.email);
@@ -55,33 +70,70 @@ export const ContactSection: React.FC<{ profile: GraduateProfile }> = ({ profile
     setTimeout(() => setCopiedEmail(false), 2000);
   };
 
-  const handleAddWish = (e: React.FormEvent) => {
+  const handleAddWish = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!senderName.trim() || !senderWish.trim()) return;
+    setStatusMessage(null);
 
-    const rotations = ['-rotate-2', 'rotate-2', '-rotate-3', 'rotate-1', 'rotate-3'];
-    const randomRotation = rotations[Math.floor(Math.random() * rotations.length)];
+    const trimmedName = senderName.trim();
+    const trimmedMessage = senderWish.trim();
 
-    const newWish: WishNote = {
-      id: Date.now().toString(),
-      sender: senderName.trim(),
-      message: senderWish.trim(),
-      color: selectedColor,
-      rotation: randomRotation,
-      timestamp: 'Just now'
-    };
+    if (!trimmedName) {
+      setStatusMessage({ type: 'error', text: 'Vui lòng nhập tên của bạn!' });
+      return;
+    }
+    if (trimmedName.length > 40) {
+      setStatusMessage({ type: 'error', text: 'Tên không được dài quá 40 ký tự.' });
+      return;
+    }
+    if (!trimmedMessage) {
+      setStatusMessage({ type: 'error', text: 'Vui lòng nhập lời chúc của bạn!' });
+      return;
+    }
+    if (trimmedMessage.length > 1000) {
+      setStatusMessage({ type: 'error', text: 'Lời chúc không được dài quá 1000 ký tự.' });
+      return;
+    }
 
-    setWishes([newWish, ...wishes]);
-    setSenderName('');
-    setSenderWish('');
+    setIsSubmitting(true);
 
-    playCelebrationSound();
-    confetti({
-      particleCount: 40,
-      spread: 60,
-      origin: { y: 0.8 },
-      colors: ['#FFD027', '#E63946', '#3B82F6']
-    });
+    try {
+      const result = await insertWishToDatabase(trimmedName, trimmedMessage, selectedColor);
+
+      if (result.success && result.data) {
+        // Clear form only after write succeeds
+        setSenderWish('');
+        setStatusMessage({
+          type: 'success',
+          text: isSupabaseConfigured 
+            ? 'Cảm ơn bạn! Lời chúc đã được lưu vào cơ sở dữ liệu thành công! 🎉'
+            : 'Lời chúc của bạn đã được lưu thành công! 🎉'
+        });
+
+        // Prepend new wish immediately to list
+        setWishes((prev) => [result.data!, ...prev]);
+
+        playCelebrationSound();
+        confetti({
+          particleCount: 50,
+          spread: 70,
+          origin: { y: 0.8 },
+          colors: ['#FFD027', '#E63946', '#3B82F6', '#10B981']
+        });
+      } else {
+        setStatusMessage({
+          type: 'error',
+          text: result.error || 'Có lỗi xảy ra khi lưu lời chúc. Vui lòng thử lại!'
+        });
+      }
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Lỗi hệ thống';
+      setStatusMessage({
+        type: 'error',
+        text: `Không thể gửi lời chúc: ${message}`
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const noteBgColors = {
@@ -91,12 +143,26 @@ export const ContactSection: React.FC<{ profile: GraduateProfile }> = ({ profile
     green: 'bg-[#DCFCE7] text-emerald-950 border-emerald-400'
   };
 
+  const formatDate = (dateString: string) => {
+    try {
+      const d = new Date(dateString);
+      if (isNaN(d.getTime())) return 'Gần đây';
+      return d.toLocaleDateString('vi-VN', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric'
+      });
+    } catch {
+      return 'Gần đây';
+    }
+  };
+
   return (
     <section id="contact" className="py-12 px-3 sm:px-6 max-w-5xl mx-auto">
       {/* Section Header */}
       <div className="flex items-center gap-3 mb-8">
         <div className="w-10 h-10 rounded-xl bg-[#1E232A] text-[#FFD027] flex items-center justify-center font-bold text-lg shadow-cutout">
-          04
+          02
         </div>
         <div>
           <span className="text-xs font-mono font-bold uppercase tracking-widest text-[#E63946]">
@@ -213,52 +279,54 @@ export const ContactSection: React.FC<{ profile: GraduateProfile }> = ({ profile
                 <span className="text-xs font-mono text-gray-400">↗</span>
               </a>
             </div>
-
-            {/* Note on placeholders */}
-            <p className="mt-4 text-[11px] font-mono text-gray-400 text-center">
-              (All contact links can be edited in real-time via the Customize button)
-            </p>
           </div>
 
         </div>
 
-        {/* Right Column: Interactive Graduation Wishing Board / Guestbook (7 cols) */}
+        {/* Right Column: Persistent Graduation Wishing Board / Guestbook (7 cols) */}
         <div className="lg:col-span-7 flex flex-col gap-6">
 
           {/* Guestbook Board Container */}
           <div className="bg-[#FAF7EE] p-5 sm:p-6 rounded-2xl border-2 sm:border-3 border-[#1E232A] shadow-cutout relative">
-            <div className="flex items-center justify-between gap-2 mb-4 pb-3 border-b-2 border-dashed border-[#DED7C6]">
+            <div className="flex flex-wrap items-center justify-between gap-2 mb-4 pb-3 border-b-2 border-dashed border-[#DED7C6]">
               <div className="flex items-center gap-2">
                 <MessageSquare className="w-5 h-5 text-[#E63946]" />
                 <h3 className="text-lg sm:text-xl font-black font-display text-[#1E232A]">
                   Graduation Wishing Board
                 </h3>
               </div>
-              <span className="text-xs font-handwriting text-blue-900 text-base font-bold">
-                Leave a sticky note! 📌
-              </span>
+              
+              {/* Database status indicator badge */}
+              <div className="flex items-center gap-1.5 text-[11px] font-mono">
+                <Database className={`w-3.5 h-3.5 ${isSupabaseConfigured ? 'text-emerald-600' : 'text-amber-600'}`} />
+                <span className={isSupabaseConfigured ? 'text-emerald-700 font-bold' : 'text-gray-600'}>
+                  {isSupabaseConfigured ? 'Supabase Connected' : 'Local Persistence (Dev)'}
+                </span>
+              </div>
             </div>
 
-            {/* Form to leave a note */}
+            {/* Form to leave a wish */}
             <form onSubmit={handleAddWish} className="mb-6 p-4 rounded-xl bg-white border-2 border-[#1E232A] shadow-sm">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
                 <div>
-                  <label className="block text-[11px] font-mono font-bold text-gray-700 mb-1 uppercase">
-                    Your Name / Relation:
+                  <label className="block text-[11px] font-mono font-bold text-gray-700 mb-1 uppercase flex justify-between">
+                    <span>Tên của bạn:</span>
+                    <span className="text-[10px] text-gray-400 font-mono">{senderName.length}/40</span>
                   </label>
                   <input
                     type="text"
                     required
-                    placeholder="e.g. Hoàng Nam (Friend / Recruiter)"
+                    maxLength={40}
+                    placeholder="Ví dụ: Hoàng Nam, Bạn Đại Học, Tuyển Dụng..."
                     value={senderName}
                     onChange={(e) => setSenderName(e.target.value)}
-                    className="w-full px-3 py-1.5 rounded-lg border border-gray-300 text-xs font-sans focus:outline-none focus:border-[#1E232A]"
+                    className="w-full px-3 py-2 rounded-lg border border-gray-300 text-xs font-sans focus:outline-none focus:border-[#1E232A]"
                   />
                 </div>
 
                 <div>
                   <label className="block text-[11px] font-mono font-bold text-gray-700 mb-1 uppercase">
-                    Sticky Note Color:
+                    Màu giấy ghi chú:
                   </label>
                   <div className="flex gap-2">
                     {(['yellow', 'pink', 'blue', 'green'] as const).map((color) => (
@@ -278,52 +346,111 @@ export const ContactSection: React.FC<{ profile: GraduateProfile }> = ({ profile
               </div>
 
               <div className="mb-3">
-                <label className="block text-[11px] font-mono font-bold text-gray-700 mb-1 uppercase">
-                  Congratulation Wish / Note:
+                <label className="block text-[11px] font-mono font-bold text-gray-700 mb-1 uppercase flex justify-between">
+                  <span>Lời chúc tốt nghiệp:</span>
+                  <span className="text-[10px] text-gray-400 font-mono">{senderWish.length}/1000</span>
                 </label>
                 <textarea
                   required
-                  rows={2}
-                  placeholder="Leave your graduation wishes, advice, or greeting for Thanh Tú..."
+                  rows={3}
+                  maxLength={1000}
+                  placeholder={`Gửi lời chúc, lời nhắn gửi hoặc lời động viên dành cho ${profile.name}...`}
                   value={senderWish}
                   onChange={(e) => setSenderWish(e.target.value)}
-                  className="w-full px-3 py-1.5 rounded-lg border border-gray-300 text-xs font-sans focus:outline-none focus:border-[#1E232A]"
+                  className="w-full px-3 py-2 rounded-lg border border-gray-300 text-xs font-sans focus:outline-none focus:border-[#1E232A]"
                 />
               </div>
 
-              <div className="flex justify-end">
+              {/* Status feedback message */}
+              {statusMessage && (
+                <div
+                  className={`mb-3 p-2.5 rounded-lg text-xs font-mono flex items-center gap-2 ${
+                    statusMessage.type === 'success'
+                      ? 'bg-emerald-50 text-emerald-800 border border-emerald-300'
+                      : 'bg-red-50 text-red-800 border border-red-300'
+                  }`}
+                >
+                  {statusMessage.type === 'success' ? (
+                    <CheckCircle className="w-4 h-4 shrink-0 text-emerald-600" />
+                  ) : (
+                    <AlertCircle className="w-4 h-4 shrink-0 text-red-600" />
+                  )}
+                  <span>{statusMessage.text}</span>
+                </div>
+              )}
+
+              <div className="flex items-center justify-between pt-1">
+                <span className="text-[10px] text-gray-400 font-mono hidden sm:inline">
+                  {isSupabaseConfigured ? '⚡ Lưu vĩnh viễn trên Supabase' : '⚡ Lưu tức thì'}
+                </span>
+
                 <button
                   type="submit"
-                  className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-[#1E232A] hover:bg-black text-[#FFD027] font-bold text-xs shadow-cutout transition-transform active:translate-y-0.5 active:shadow-none"
+                  disabled={isSubmitting}
+                  className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-[#1E232A] hover:bg-black text-[#FFD027] font-bold text-xs shadow-cutout transition-transform active:translate-y-0.5 active:shadow-none disabled:opacity-70"
                 >
-                  <Send className="w-3.5 h-3.5" />
-                  <span>Pin Sticky Note 📌</span>
+                  {isSubmitting ? (
+                    <>
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      <span>Đang lưu vào CSDL...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Send className="w-3.5 h-3.5" />
+                      <span>Gửi lời chúc 📌</span>
+                    </>
+                  )}
                 </button>
               </div>
             </form>
 
-            {/* Sticky Notes Display Board */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              {wishes.map((note) => (
-                <div
-                  key={note.id}
-                  className={`relative p-4 rounded-xl border-2 shadow-sm transition-transform hover:scale-105 hover:rotate-0 hover:z-20 ${noteBgColors[note.color]} ${note.rotation}`}
-                >
-                  {/* Pushpin at top */}
-                  <div className="absolute -top-2.5 left-1/2 -translate-x-1/2 w-4 h-4 rounded-full bg-red-600 border border-black shadow-sm flex items-center justify-center">
-                    <div className="w-1.5 h-1.5 rounded-full bg-white/70" />
-                  </div>
+            {/* Sticky Notes Display Board (Newest first) */}
+            <div>
+              <div className="flex items-center justify-between mb-3 text-xs font-mono text-gray-600">
+                <span className="font-bold uppercase tracking-wider">
+                  Lời chúc đã gửi ({wishes.length})
+                </span>
+                {isLoadingWishes && (
+                  <span className="flex items-center gap-1 text-gray-400">
+                    <Loader2 className="w-3 h-3 animate-spin" /> Đang tải...
+                  </span>
+                )}
+              </div>
 
-                  <p className="text-xs sm:text-sm font-handwriting text-base sm:text-lg leading-snug mt-1 text-gray-900">
-                    "{note.message}"
-                  </p>
-
-                  <div className="mt-3 pt-2 border-t border-black/10 flex items-center justify-between text-[11px] font-mono font-semibold">
-                    <span>— {note.sender}</span>
-                    <span className="text-[10px] opacity-60">{note.timestamp}</span>
-                  </div>
+              {wishes.length === 0 && !isLoadingWishes ? (
+                <div className="p-8 text-center text-xs font-mono text-gray-400 border-2 border-dashed border-gray-300 rounded-xl">
+                  Chưa có lời chúc nào. Hãy là người đầu tiên gửi lời chúc tốt nghiệp nhé! ✨
                 </div>
-              ))}
+              ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 max-h-[500px] overflow-y-auto pr-1">
+                  {wishes.map((note, index) => {
+                    const rotations = ['-rotate-1', 'rotate-1', '-rotate-2', 'rotate-2', 'rotate-0'];
+                    const rotation = rotations[index % rotations.length];
+                    const noteColor = note.color && noteBgColors[note.color] ? noteBgColors[note.color] : noteBgColors.yellow;
+
+                    return (
+                      <div
+                        key={note.id}
+                        className={`relative p-4 rounded-xl border-2 shadow-sm transition-transform hover:scale-105 hover:rotate-0 hover:z-20 ${noteColor} ${rotation}`}
+                      >
+                        {/* Pushpin at top */}
+                        <div className="absolute -top-2.5 left-1/2 -translate-x-1/2 w-4 h-4 rounded-full bg-red-600 border border-black shadow-sm flex items-center justify-center">
+                          <div className="w-1.5 h-1.5 rounded-full bg-white/70" />
+                        </div>
+
+                        <p className="text-xs sm:text-sm font-handwriting text-base sm:text-lg leading-snug mt-1 text-gray-900 break-words">
+                          "{note.message}"
+                        </p>
+
+                        <div className="mt-3 pt-2 border-t border-black/10 flex items-center justify-between text-[11px] font-mono font-semibold">
+                          <span className="truncate max-w-[150px]">— {note.name}</span>
+                          <span className="text-[10px] opacity-60 shrink-0">{formatDate(note.created_at)}</span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </div>
 
           </div>
@@ -339,7 +466,7 @@ export const ContactSection: React.FC<{ profile: GraduateProfile }> = ({ profile
           <span>© 2026 {profile.name} • Bachelor of Software Engineering</span>
         </div>
         <div className="flex items-center gap-2">
-          <span>Crafted with React, Tailwind & Vite</span>
+          <span>{isSupabaseConfigured ? 'Connected to Supabase' : 'Offline / Dev Mode'}</span>
           <span>•</span>
           <span className="text-red-600 font-bold">FPT University Can Tho</span>
         </div>
