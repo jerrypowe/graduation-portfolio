@@ -1,0 +1,61 @@
+# Dependencies
+node_modules
+.pnp
+.pnp.js
+
+# Production build
+dist
+dist-ssr
+
+# Local env files
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Editor directories and files
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# Unrelated legacy files in directory
+all_items*.txt
+auto_reconnect_tap.ps1
+clean_submissions_log.txt
+dashboard.html
+dump_all_items.py
+extract_*.py
+fast*.png
+fast_tap.sh
+final.png
+check.png
+max.png
+screen*.png
+form_data.json
+generate_dashboard.py
+inspect_matches.py
+parse_log*.py
+proof.html
+run_tap.ps1
+submissions*.json
+submissions_log*.txt
+submit_*.py
+test_cp437.py
+tiktok_auto_tap.py
+tiktok_chrome_heart.js
+verify_proof.py
+TikTokTapper/
